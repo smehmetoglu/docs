@@ -82,28 +82,16 @@ generate_docs() {
     fi
 
     # This path should be relative to the tools/resourcedocsgen tool.
-    SCHEMA_FILE="../../${EXISTING_SCHEMA_FILE}"
+    SCHEMA_FILE="${EXISTING_SCHEMA_FILE}"
 
     echo "Running docs generator from schema for ${provider}..."
 
-    pushd ${TOOL_RESDOCGEN}
-
-    go mod tidy
-
-    if [ -z "${GOPATH:-}" ]; then
-        echo "GOPATH is empty. Defaulting to ${HOME}/go"
-        GOPATH="${HOME}/go"
-    fi
-
-    go build -o "${GOPATH}/bin/resourcedocsgen" .
     resourcedocsgen docs \
       --docsOutDir "${ABSOLUTEPACKDIR}/${provider}/api-docs" \
       --schemaFile "${SCHEMA_FILE}" \
       --version "${plugin_version}" \
       --logtostderr \
       --packageTreeJSONOutDir "${PACKAGE_TREE_OUT_DIR}" || exit 3
-
-    popd
 
     echo "Done generating resource docs for ${provider}"
     echo ""
