@@ -1,0 +1,521 @@
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+
+    <!-- GrowthBook / Segment keys -->
+    <script>
+        {{- if eq hugo.Environment "production" }}
+            var segmentWriteKey = "UK90Ofwacetj5VCPJ7cUgkbNcKLSHO3u";
+            var snippetName = "C8Y429BDEy/06ujkUhzfL.min.js";
+            window.growthbook_sdk_key="sdk-psPofGr6jFV2ja9O";
+            window.growthbook_decrypt_key="9NsAVMNWaDS+Oky3rhLQ+A==";
+            window.growthbook_dev_mode=false;
+        {{- else }}
+            var segmentWriteKey = "bATvhu6XKpwi7Cs258MGsELkDpVOzvdY";
+            var snippetName = "C8Y429BDEy/hpBKpR8Nx1yVCjKPB2nJWg.min.js";
+            window.growthbook_sdk_key="sdk-BwIkZCqXQ9pZyp0P";
+            window.growthbook_decrypt_key=undefined;
+            window.growthbook_dev_mode=true;
+        {{- end }}
+    </script>
+
+    <!-- Our CSS and JS bundles. -->
+    {{ partial "assets" . }}
+
+
+    <!-- Google Site Verification for Google Webmaster tools and YouTube. -->
+    <meta name="google-site-verification" content="N-ezSTIu4P3bSc4TqidV4wWCkMzFiMN269ZgDYArGkk" />
+
+    {{ if .Params.redirect_to }}
+        {{ $delay := 0 }}
+
+        {{/* https://developers.google.com/search/docs/advanced/crawling/301-redirects#metarefresh */}}
+        {{ if .Params.redirect_temporarily }}
+            {{ $delay = 1 }}
+        {{ end }}
+
+
+        <meta http-equiv="refresh" content="{{ $delay }}; url={{ .Params.redirect_to }}" />
+    {{ end }}
+
+    {{ if eq .Params.block_external_search_index true }}
+        <meta name="robots" content="noindex" />
+    {{ end }}
+
+
+    <!--
+        We use taxonomy pages for tags and authors for our blog posts. These
+        pages end up cannibalising other pages on our site that rank for key terms.
+        To avoid this, we add the `noidex` tag to tell search engines not index taxonomy pages.
+    -->
+    {{ if .Data.Singular }}
+        <meta name="robots" content="noindex" />
+    {{ end }}
+
+    <!-- Organization schema for google -->
+    {{ if eq .Params.include_organization_schema true }}
+        <script type="application/ld+json">
+            {
+                "@context": "https://schema.org",
+                "@type": "Corporation",
+                "name": "Pulumi",
+                "@id": "https://www.pulumi.com/product/",
+                "description": "Pulumi lets engineers deliver infrastructure as code faster, using any programming language. The Pulumi Platform enables customers to manage 10x more resources at lower cost than traditional tools, while Pulumi Insights unlocks analytics and search across cloud infrastructure, and enables novel AI-driven infrastructure automation.",
+                "logo": "https://camo.githubusercontent.com/ffc5afc9f46a37b2f0d286d9d0af06786843507b2ddc162cdb41ef6a08f3b5ab/68747470733a2f2f7777772e70756c756d692e636f6d2f696d616765732f6c6f676f2f6c6f676f2d6f6e2d77686974652d626f782e7376673f",
+                "foundingDate" : "2017",
+                "address": {
+                    "@type": "PostalAddress",
+                    "addressLocality": "Seattle, WA",
+                    "addressCountry": "United States",
+                    "postalCode": "98101",
+                    "streetAddress": "1525” 4th Ave. Suite 800"
+                },
+                "email": "mailto:team@pulumi.com",
+                "url": "https://www.pulumi.com",
+                "sameAs": [
+                    "https://twitter.com/PulumiCorp",
+                    "https://www.linkedin.com/company/pulumi",
+                    "https://www.youtube.com/channel/UC2Dhyn4Ev52YSbcpfnfP0Mw",
+                    "https://github.com/pulumi/pulumi"
+                ]
+            }
+        </script>
+    {{ end }}
+
+
+    <!-- Workshop info for Google events. -->
+    {{ if .Params.event_data }}
+        <script type="application/ld+json">
+            {
+                "@context": "https://schema.org",
+                "@type": "Event",
+                "name": "{{ .Params.event_data.name }}",
+                "startDate": "{{ .Params.event_data.start_date }}",
+                "endDate": "{{ .Params.event_data.end_date }}",
+                "eventStatus": "https://schema.org/EventScheduled",
+                "eventAttendanceMode": "https://schema.org/OnlineEventAttendanceMode",
+                "location": {
+                  "@type": "VirtualLocation",
+                  "url": {{ .Params.event_data.url }}
+                },
+                "description": "{{ .Params.event_data.description }}",
+                "organizer": {
+                  "@type": "Organization",
+                  "name": "Pulumi",
+                  "url": "https://pulumi.com"
+                }
+              }
+        </script>
+    {{ end }}
+
+    <!-- Event info for Google events (in-person exhibitions)-->
+    {{ if .Params.exhibition_data }}
+        {{ with .Params.exhibition_data }}
+            <script type="application/ld+json">
+                {
+                    "@context": "https://schema.org",
+                    "@type": "ExhibitionEvent",
+                    "name": "{{ .name }}",
+                    "description": "{{ .description }}",
+                    "startDate": "{{ .start_date }}",
+                    "endDate": "{{ .end_date }}",
+                    "location": {
+                      "@type": "Place",
+                      "name": "{{ .location.name }}",
+                      "address": {
+                        "@type": "PostalAddress",
+                        "streetAddress": "{{ .location.address.street }}",
+                        "addressLocality": "{{ .location.address.locality }}",
+                        "addressRegion": "{{ .location.address.region }}",
+                        "postalCode": "{{ .location.address.postal_code }}",
+                        "addressCountry": "{{ .location.address.country }}"
+                      }
+                    },
+                    "organizer": {
+                      "@type": "Organization",
+                      "name": "{{ .organizer.name }}",
+                      "url": {{ .organizer.url }}
+                    },
+                    "exhibitor": {
+                      "@type": "Organization",
+                      "name": "Pulumi",
+                      "url": "https://pulumi.com",
+                      "description": "Pulumi helps teams create, deploy, and manage modern cloud applications using infrastructure as code."
+                    },
+                    "boothNumber": "{{ .booth }}",
+                    "eventStatus": "https://schema.org/EventScheduled",
+                    "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode"
+                }
+            </script>
+        {{ end }}
+    {{ end }}
+
+
+    <!--
+        Metadata tags for OpenGraph and Twitter.
+    -->
+
+    {{ $ogImage := "/logos/brand/og-default.png" }}
+    {{ $twitterImage := "/logos/brand/twitter-summary.png" }}
+    {{ $twitterCardType := "summary" }}
+
+    {{ if .Params.meta_image }}
+        {{ if in "blog templates" .Section }}
+            {{ $ogImage = (.Resources.GetMatch .Params.meta_image).RelPermalink }}
+        {{ else }}
+            {{ $ogImage = .Params.meta_image }}
+        {{ end }}
+
+
+        <!-- Only use large-image Twitter cards where we've set meta_images. -->
+        {{ $twitterImage = $ogImage }}
+        {{ $twitterCardType = "summary_large_image" }}
+    {{ end }}
+
+
+    <meta property="og:image" content="{{ $ogImage | absURL }}" />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="{{ .Permalink }}" />
+    <meta property="og:site_name" content="pulumi" />
+
+    <meta name="twitter:image" content="{{ $twitterImage | absURL }}" />
+    <meta name="twitter:card" content="{{ $twitterCardType }}" />
+    <meta name="twitter:site" content="@PulumiCorp" />
+
+    {{ if .Params.meta_twitter_creator }}
+        <meta name="twitter:creator" content="{{ .Params.meta_twitter_creator }}" />
+    {{ else if .Params.authors }}
+        {{ range $idx, $authorName := .Params.authors }}
+            {{ $authorData := index $.Site.Data.team.team $authorName }}
+            {{ with $authorData.social }}
+                {{ with .twitter }}
+                    <meta name="twitter:creator" content="@{{ . }}" />
+                {{ end }}
+            {{ end }}
+        {{ end }}
+    {{ end }}
+
+    {{ if .Params.meta_title }}
+        <meta property="og:title" content="{{ .Params.meta_title }}" />
+    {{ else if .Params.title }}
+        <meta property="og:title" content="{{ .Params.title }}" />
+    {{ else }}
+        <meta property="og:title" content="{{ .Site.Title }}" />
+    {{ end }}
+
+    {{ if .Params.meta_desc }}
+        <meta name="description" content="{{ .Params.meta_desc }}" />
+        <meta property="og:description" content="{{ .Params.meta_desc }}" />
+    {{ else if and .IsHome .Site.Params.meta_desc }}
+        <meta name="description" content="{{ .Site.Params.meta_desc }}" />
+        <meta property="og:description" content="{{ .Site.Params.meta_desc }}" />
+    {{ else if .Summary }}
+        <meta name="description" content="{{ .Summary }}" />
+        <meta property="og:description" content="{{ .Summary }}" />
+    {{ end }}
+
+    {{ if .IsHome }}
+        <title>{{ .Site.Title }}</title>
+    {{ else if .Title }}
+        {{ $title := .Title }}
+        {{ if .Params.title_tag }}
+            {{ $title = .Params.title_tag }}
+        {{ end }}
+
+
+        <!-- The blog tags, specifically the tag lists, end up clashing with other page titles on the website. We
+             add "Blog" to the title so that the titles no longer clash. -->
+        {{ if and (eq .Type "blog") .IsPage }}
+            <title>{{ $title }} | Pulumi Blog</title>
+        {{ else if eq .Type "blog" }}
+            {{ if gt $.Paginator.PageNumber 1 }}
+                <title>{{ $title }} | Page {{$.Paginator.PageNumber}} | Pulumi Blog</title>
+            {{ else }}
+                <title>{{ $title }} | Pulumi Blog</title>
+            {{ end }}
+        {{ else if eq .Type "docs" }}
+            <title>{{ $title }} | Pulumi Docs</title>
+        {{ else if eq .Type "registry" }}
+            <title>{{ replace $title "/" "." }} | Pulumi Registry</title>
+        {{ else }}
+            <title>{{ $title }} | Pulumi</title>
+        {{ end }}
+    {{ else if not (or .Params.redirect_to .Params.private) }}
+        <!--
+            TODO[pulumi/docs#1127]: can't enable this until Python docs are fixed.
+            \{\{ /* errorf "%q: Missing 'title' directive; please specify this to improve search indexing." .Path */ \}\}
+        -->
+    {{ end }}
+    <link rel="icon" type="image/x-icon" href="/images/favicon.ico" />
+
+    <!--
+        The canonical URL for the website. In all cases, this should be the public-facing
+        production URL of the site, to avoid SEO penalties for duplicate content.
+        https://support.google.com/webmasters/answer/139066?hl=en
+        https://en.wikipedia.org/wiki/Canonical_link_element
+    -->
+
+    {{ if .Params.canonical_url }}
+        <link rel="canonical" href="{{ .Params.canonical_url }}" />
+    {{ else }}
+        <link rel="canonical" href="{{ .Site.Params.canonicalURL }}{{ .RelPermalink }}" />
+    {{ end }}
+
+
+    <!-- RSS link for the blog. -->
+    <link rel="alternate" type="application/rss+xml" href="{{ "/blog/rss.xml" | absURL }}" title="Pulumi Blog" />
+
+    <!-- Lazy-load Sentry.  -->
+    <script src="https://js.sentry-cdn.com/02614bf2f18e4615a73218b810563ced.min.js" crossorigin="anonymous"></script>
+    <script>
+        Sentry.onLoad(function() {
+            Sentry.init({
+                environment: "{{ hugo.Environment }}",
+                {{ if in "preview production" hugo.Environment }}
+                    release: "{{ getenv "ASSET_BUNDLE_ID" }}",
+                {{ end }}
+
+                // Don't send Sentry events for browsers we don't support.
+                beforeSend(event) {
+                    const ua = event.request.headers["User-Agent"];
+
+                    if (ua && ua.match(/Linespider|Yeti/)) {
+                        return null;
+                    }
+
+                    return event;
+                }
+            });
+        });
+    </script>
+
+    <script async defer src="https://buttons.github.io/buttons.js"></script>
+
+    {{- if eq hugo.Environment "production" }}
+        <!-- 6sense -->
+        <script async defer id="6senseWebTag" src="https://j.6sc.co/j/a4dca4b3-351c-4764-bda9-03c5caf5fedf.js"></script>
+    {{- end }}
+
+    <!--Segment tracking-->
+    <script>
+        // Do not load Segment for these user agents.
+        userAgentBlacklist = [
+            'Mozilla/5.0 (compatible; SiteAuditBot/0.97; +http://www.semrush.com/bot.html)',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+        ]
+
+        !(function () {
+            var i = "analytics",
+                analytics = (window[i] = window[i] || []);
+            if (!analytics.initialize)
+                if (analytics.invoked) {
+                    window.console && console.error && console.error("Segment snippet included twice.");
+                } else if (userAgentBlacklist.includes(navigator.userAgent)) {
+                    console.log("Segment snippet not loaded for user agent: " + navigator.userAgent);
+                } else {
+                    analytics.invoked = !0;
+                    analytics.methods = [
+                        "trackSubmit",
+                        "trackClick",
+                        "trackLink",
+                        "trackForm",
+                        "pageview",
+                        "identify",
+                        "reset",
+                        "group",
+                        "track",
+                        "ready",
+                        "alias",
+                        "debug",
+                        "page",
+                        "screen",
+                        "once",
+                        "off",
+                        "on",
+                        "addSourceMiddleware",
+                        "addIntegrationMiddleware",
+                        "setAnonymousId",
+                        "addDestinationMiddleware",
+                        "register",
+                    ];
+                    analytics.factory = function (e) {
+                        return function () {
+                            if (window[i].initialized) return window[i][e].apply(window[i], arguments);
+                            var n = Array.prototype.slice.call(arguments);
+                            if (["track", "screen", "alias", "group", "page", "identify"].indexOf(e) > -1) {
+                                var c = document.querySelector("link[rel='canonical']");
+                                n.push({ __t: "bpc", c: (c && c.getAttribute("href")) || void 0, p: location.pathname, u: location.href, s: location.search, t: document.title, r: document.referrer });
+                            }
+                            n.unshift(e);
+                            analytics.push(n);
+                            return analytics;
+                        };
+                    };
+                    for (var n = 0; n < analytics.methods.length; n++) {
+                        var key = analytics.methods[n];
+                        analytics[key] = analytics.factory(key);
+                    }
+                    analytics.load = function (key, n) {
+                        var t = document.createElement("script");
+                        t.type = "text/javascript";
+                        t.async = !0;
+                        t.setAttribute("data-global-segment-analytics-key", i);
+                        t.src = "https://evs.analytics.pulumi.com/" + snippetName;
+                        var r = document.getElementsByTagName("script")[0];
+                        r.parentNode.insertBefore(t, r);
+                        analytics._loadOptions = n;
+                    };
+                    analytics._writeKey = segmentWriteKey;
+                    analytics._cdn = "https://evs.analytics.pulumi.com";
+                    analytics.SNIPPET_VERSION = "5.2.0";
+                    analytics.load(segmentWriteKey);
+                    analytics.page();
+                }
+        })();
+    </script>
+
+    <!-- Segment Consent Manager -->
+    <script>
+        window.consentManagerConfig = function(exports) {
+            var React = exports.React;
+            var inEU = exports.inEU;
+
+            var bannerContent = React.createElement(
+                'span',
+                null,
+                'We use cookies (and other similar technologies) to collect data to improve your experience on our site. By using our website, you՚re agreeing to the collection of data as described in our',
+                ' ',
+                React.createElement(
+                    'a',
+                    { href: '/privacy/', target: '_blank' },
+                    'Privacy Policy'
+                ),
+                '.'
+            )
+            var bannerSubContent = React.createElement(
+                'div',
+                { class: "manage-cookies-btn" },
+                'Manage cookies'
+            )
+            //var bannerSubContent = 'You can change your preferences at any time.'
+            var preferencesDialogTitle = 'Website Data Collection Preferences'
+            var preferencesDialogContent =
+                'We use data collected by cookies and JavaScript libraries to improve your browsing experience, analyze site traffic, deliver personalized advertisements, and increase the overall performance of our site.'
+            var cancelDialogTitle = 'Are you sure you want to cancel?'
+            var cancelDialogContent =
+                'Your preferences have not been saved. By continuing to use our website, you are agreeing to our Website Data Collection Policy.'
+
+            return {
+                container: '#segment-consent-manager',
+                writeKey: segmentWriteKey,
+                bannerContent: bannerContent,
+                bannerSubContent: bannerSubContent,
+                preferencesDialogTitle: preferencesDialogTitle,
+                preferencesDialogContent: preferencesDialogContent,
+                cancelDialogTitle: cancelDialogTitle,
+                cancelDialogContent: cancelDialogContent,
+                shouldRequireConsent: exports.inEU,
+                closeBehavior: exports.inEU() ? "dismiss" : "accept",
+                bannerTextColor: "black",
+                cdnHost: "evs.analytics.pulumi.com",
+                shouldReload: false
+            }
+        }
+    </script>
+
+    <script
+        src="/js/consent-manager.js"
+        defer
+    ></script>
+
+    {{- if eq hugo.Environment "production" }}
+        <!-- Clearbit snippet -->
+        <script src="https://tag.clearbitscripts.com/v1/pk_54e7d7c428c6d5e79098374d93a7b333/tags.js" referrerpolicy="strict-origin-when-cross-origin"></script>
+
+        <!-- Facebook Domain Verification -->
+        <meta name="facebook-domain-verification" content="phlf6qes2bxa9ufzk8zt2es0qivg8j" />
+
+        <!-- Common Room-->
+        <script>
+            (function() {
+                if (typeof window === 'undefined') return;
+                if (typeof window.signals !== 'undefined') return;
+                var script = document.createElement('script');
+                script.src = 'https://cdn.cr-relay.com/v1/site/a725b5ba-75f1-44dc-b250-11023fc10b9d/signals.js';
+                script.async = true;
+                window.signals = Object.assign(
+                    [],
+                    ['page', 'identify', 'form'].reduce(function (acc, method){
+                        acc[method] = function () {
+                        signals.push([method, arguments]);
+                        return signals;
+                        };
+                        return acc;
+                    }, {})
+                );
+                document.head.appendChild(script);
+            })();
+        </script>
+
+        <!-- RB2B -->
+        <script>
+            !function () {var reb2b = window.reb2b = window.reb2b || [];
+            if (reb2b.invoked) return;reb2b.invoked = true;reb2b.methods = ["identify", "collect"];
+            reb2b.factory = function (method) {return function () {var args = Array.prototype.slice.call(arguments);
+            args.unshift(method);reb2b.push(args);return reb2b;};};
+            for (var i = 0; i < reb2b.methods.length; i++) {var key = reb2b.methods[i];reb2b[key] = reb2b.factory(key);}
+            reb2b.load = function (key) {var script = document.createElement("script");script.type = "text/javascript";script.async = true;
+            script.src = "https://s3-us-west-2.amazonaws.com/b2bjsstore/b/" + key + "/reb2b.js.gz";
+            var first = document.getElementsByTagName("script")[0];
+            first.parentNode.insertBefore(script, first);};
+            reb2b.SNIPPET_VERSION = "1.0.1";reb2b.load("Y4O7Z0HKLKNX");}();
+        </script>
+    {{- end }}
+
+    <!-- Apply anchor links to headings in the docs, blog and taxonomy pages. -->
+    {{ if and (not .IsHome) (.Section) (in "docs tutorials blog authors tags registry" .Section) }}
+        <script async defer src="//cdnjs.cloudflare.com/ajax/libs/anchor-js/4.1.0/anchor.min.js"></script>
+        <script>
+            // Wait for the window's `load` event to ensure the deferred anchor.js script has finished loading as well.
+            window.addEventListener("load", function (event) {
+                if (anchors) {
+                    anchors.add("h1:not(.no-anchor), h2:not(.no-anchor), h3:not(.no-anchor), h4:not(.no-anchor), h5:not(.no-anchor), h6:not(.no-anchor)");
+                }
+            });
+        </script>
+    {{ end }}
+
+    {{ if .Params.math }}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.4/katex.min.css" />
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.4/katex.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.4/contrib/auto-render.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            renderMathInElement(document.body, {
+                delimiters: [
+                    {left: "$$", right: "$$", display: true},  // Block
+                    {left: "$", right: "$", display: false}    // Inline
+                ]
+            });
+        });
+    </script>
+    {{ end }}
+
+
+    {{/* Tests to enforce required frontmatter for certain content types. */}}
+    {{ if and (eq .Type "blog") (eq .BundleType "leaf") .IsPage }}
+        {{ if not .Params.authors }}
+            {{ errorf "Blog posts require authors: %s" .File.Path }}
+        {{ else }}
+            {{ range $authorID := .Params.authors }}
+                {{ if not (index $.Site.Data.team.team $authorID) }}
+                    {{ errorf "Blog posts author (%s) not found: %s" $authorID $.Page.File.Path }}
+                {{ end }}
+            {{ end }}
+        {{ end }}
+        {{ if not .Params.tags }}
+            {{ errorf "Blog posts require tags: %s" .File.Path }}
+        {{ end }}
+    {{ end }}
+</head>

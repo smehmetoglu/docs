@@ -1,5 +1,6 @@
 // Copyright 2016-2021, Pulumi Corporation.  All rights reserved.
 
+import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import {
     CloudFrontRequest,
@@ -9,92 +10,40 @@ import {
 } from "aws-lambda";
 import * as URLPattern from "url-pattern";
 import { LambdaEdge } from "./lambdaEdge";
+import { getResources } from "@pulumi/aws/resourcegroupstaggingapi/getResources";
 
-/**
- * Returns the Lambda function associations for the CloudFront distribution.
- * @param addSecurityHeaders If true, creates Lambda@Edge that sets security headers on
- * origin responses and adds the Lambda to the list of associated triggers.
- * @param doEdgeRedirects If true, creates a Lambda@Edge function that that conditionally
-*  redirects based on the URL of the request.
- */
-export function getLambdaFunctionAssociations(addSecurityHeaders: boolean, doEdgeRedirects: boolean):
-    aws.types.input.cloudfront.DistributionDefaultCacheBehaviorLambdaFunctionAssociation[] {
+// Edge functions must be defined in us-east-1.
+const usEast1Provider = new aws.Provider("usEast1", {
+    region: aws.Region.USEast1,
+});
 
-    const associations = [];
+export function getEdgeRedirectAssociation(): aws.types.input.cloudfront.DistributionDefaultCacheBehaviorLambdaFunctionAssociation {
+    const edgeRedirectsLambda = new LambdaEdge("redirects", {
+        func: getEdgeRedirectsLambdaCallback(),
+        funcDescription: "Lambda function that conditionally redirects based on a path-matching expression.",
+    }, { provider: usEast1Provider });
 
-    // Edge functions must be defined in us-east-1.
-    const provider = new aws.Provider("usEast1", {
-        region: aws.Region.USEast1,
-    });
-
-    if (addSecurityHeaders) {
-        const securityHeadersLambda = new LambdaEdge(
-            "security",
-            {
-                disableResourceNamePrefix: true,
-                func: getSecurityHeadersLambdaCallback(),
-                funcDescription: "Lambda function that sets security headers on a Cloudfront origin response.",
-            },
-            {
-                provider,
-            },
-        );
-        associations.push({
-            includeBody: false,
-            lambdaArn: securityHeadersLambda.getLambdaEdgeArn(),
-            // Origin response is a type of trigger that runs the function only when CF
-            // contacts the origin for a file. Thus reducing the number of times the func
-            // is actually invoked.
-            //
-            // See the following link for all trigger events supported by CF:
-            // https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/lambda-cloudfront-trigger-events.html
-            eventType: "origin-response",
-        });
-    }
-
-    if (doEdgeRedirects) {
-        const edgeRedirectsLambda = new LambdaEdge(
-            "redirects",
-            {
-                func: getEdgeRedirectsLambdaCallback(),
-                funcDescription: "Lambda function that conditionally redirects based on a path-matching expression.",
-            },
-            {
-                provider,
-            },
-        );
-        associations.push({
-            includeBody: false,
-            lambdaArn: edgeRedirectsLambda.getLambdaEdgeArn(),
-            eventType: "origin-request",
-        });
-    }
-
-    return associations;
-}
-
-function getSecurityHeadersLambdaCallback(): aws.lambda.Callback<CloudFrontResponseEvent, CloudFrontResponse> {
-    // See the following link for an example:
-    // https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/lambda-edge-how-it-works-tutorial.html
-    return (event, context, callback) => {
-
-        // Get contents of response.
-        const response = event.Records[0].cf.response;
-        const headers = response.headers;
-
-        // Set new headers.
-        headers["x-frame-options"] = [{
-            key: "X-Frame-Options",
-            value: "DENY",
-        }];
-
-        // Return modified response.
-        callback(null, response);
+    return {
+        includeBody: false,
+        lambdaArn: edgeRedirectsLambda.getLambdaEdgeArn(),
+        eventType: "origin-request",
     };
 }
 
-function getEdgeRedirectsLambdaCallback():
-    aws.lambda.Callback<CloudFrontRequestEvent, CloudFrontRequest | CloudFrontResponse> {
+export function getAIAnswersRewriteAssociation(): aws.types.input.cloudfront.DistributionDefaultCacheBehaviorLambdaFunctionAssociation {
+    const aiAnswersRewritesLambda = new LambdaEdge("answers-rewrites", {
+        func: getAIAnswersRewritesLambdaCallback(),
+        funcDescription: "Lambda function that rewrites HTTP 404s from Pulumi AI Answers as 410s.",
+    }, { provider: usEast1Provider });
+
+     return {
+        includeBody: false,
+        lambdaArn: aiAnswersRewritesLambda.getLambdaEdgeArn(),
+        eventType: "origin-response",
+    };
+}
+
+function getEdgeRedirectsLambdaCallback(): aws.lambda.Callback<CloudFrontRequestEvent, CloudFrontRequest | CloudFrontResponse> {
     // https://aws.amazon.com/blogs/networking-and-content-delivery/handling-redirectsedge-part1/
     return (event: CloudFrontRequestEvent, context, callback) => {
         const request = event.Records[0].cf.request;
@@ -131,8 +80,30 @@ function getEdgeRedirectsLambdaCallback():
     };
 }
 
+function getAIAnswersRewritesLambdaCallback(): aws.lambda.Callback<CloudFrontRequestEvent, CloudFrontRequest | CloudFrontResponse> {
+    return (event: CloudFrontResponseEvent, context, callback) => {
+        const request = event.Records[0].cf.request;
+        const response = event.Records[0].cf.response;
+
+        // When requests for an AI Answers page return 404, either the page doesn't exist or we've explicitly unpublished it.
+        // For the latter case, it'd be great if the AI App could 410 (Gone), but unfortunately Next.js doesn't support this.
+        // So we use this function to rewrite the responses for these pages on the way out.
+        // https://github.com/vercel/next.js/discussions/53225
+        if (request.uri.match(/\/ai\/answers\//) && response.status === "404") {
+            callback(null, {
+                ...response,
+                status: "410",
+                statusDescription: "Gone",
+            });
+        }
+
+        callback(null, response);
+        return;
+    };
+}
+
 function getRedirect(uri: string): string | undefined {
-    return getRegistryRedirect(uri) || getSDKRedirect(uri);
+    return getRegistryRedirect(uri) || getSDKRedirect(uri) || getResourcesRedirect(uri);
 }
 
 function getRegistryRedirect(uri: string): string | undefined {
@@ -163,11 +134,19 @@ function getCloudProvidersRedirect(uri: string): string | undefined {
             .replace("setup", "installation-configuration");
     }
 
+    if (uri.includes("/registry/packages/azure-native-v2")) {
+        return uri.replace("azure-native-v2", "azure-native")
+    }
+
     return undefined;
 }
 
 function getAPIDocsRedirect(uri: string): string | undefined {
-    if (uri.match(/\/docs\/reference\/pkg\/nodejs|python|dotnet\//)) {
+    console.log(`getAPIDocsRedirect uri: '${uri}'`);
+    console.log(uri.match(/\/docs\/reference\/pkg\/nodejs|python|dotnet|java\//));
+    console.log(uri.match(/\/docs\/reference\/pkg\/(nodejs|python|dotnet|java)\//));
+
+    if (uri.match(/\/docs\/reference\/pkg\/nodejs|python|dotnet|java\//)) {
         return undefined;
     }
 
@@ -184,14 +163,9 @@ function getAPIDocsRedirect(uri: string): string | undefined {
 
 function getTutorialsRedirect(uri: string): string | undefined {
     const tutorialsPage = uri.match(/\/docs\/(?:reference\/)?tutorials\/([^\/]+)/);
-    
+
     if (tutorialsPage) {
         const packageName = tutorialsPage[1];
-
-        // Don't redirect cloudfx, as we don't have a new home for its tutorial content yet.
-        if (packageName === "cloudfx") {
-            return undefined;
-        }
 
         const isAWSNativeGuide = AWS_NATIVE_TUTORIALS.some((awsNativeGuide) => uri.includes(awsNativeGuide))
         if (isAWSNativeGuide) {
@@ -233,6 +207,15 @@ function getSDKRedirect(uri: string): string | undefined {
     return nodeSDKRedirect(uri) || pythonSDKRedirect(uri) || dotnetSDKRedirect(uri) || undefined;
 }
 
+// redirect /resources/* to /events/* following workshop+event URL rename to capture orphaned links
+function getResourcesRedirect(uri: string): string | undefined {
+    if (uri.startsWith("/resources/")) {
+        return uri.replace("/resources/", "/events/");
+    }
+
+    return undefined;
+}
+
 function nodeSDKRedirect(uri: string): string | undefined {
     const pattern = new URLPattern("/docs/reference/pkg/nodejs/pulumi/:provider(/:service)(*)");
     const match = pattern.match(uri);
@@ -243,6 +226,7 @@ function nodeSDKRedirect(uri: string): string | undefined {
         "awsx",
         "kubernetesx",
         "terraform",
+        "esc-sdk",
     ];
 
     if (match && match.provider && !exceptions.includes(match.provider)) {
@@ -262,6 +246,7 @@ function pythonSDKRedirect(uri: string): string | undefined {
         "pulumi",
         "policy",
         "terraform",
+        "esc_sdk",
     ];
 
     if (match && match.provider && !exceptions.includes(match.provider)) {
