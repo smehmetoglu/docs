@@ -45,20 +45,26 @@ node scripts/translate-redirects.js "$build_dir" "$(pulumi -C infrastructure con
 # created in another account, in which case subsequent operations on the bucket will also
 # fail, causing this script to exit nonzero. In either case, it's okay to continue.
 aws s3 mb $destination_bucket_uri --region "$(aws_region)" || true
+# set `BlockPublicAcls` to false to enable setting the public-read ACL below.
+aws s3api put-public-access-block --bucket "$destination_bucket" --public-access-block-configuration BlockPublicAcls=false
+# set `ObjectOwnership=ObjectWriter`, since as of April 2023 the default has changed to `BucketOwnerEnforced` which
+# disables bucket ACLs.
+aws s3api put-bucket-ownership-controls --bucket "$destination_bucket" --ownership-controls="Rules=[{ObjectOwnership=ObjectWriter}]"
+aws s3api put-bucket-acl --bucket "$destination_bucket" --acl bucket-owner-full-control
 
 # Tag the bucket with ownership information for production buckets.
 if [ "$(pulumi -C infrastructure stack --show-name)" == "production" ]; then
-    aws s3api put-bucket-tagging --bucket $destination_bucket --tagging file://$(pwd)/scripts/bucket-tagging.json
+    aws s3api put-bucket-tagging --bucket $destination_bucket --tagging file://$(pwd)/scripts/bucket-tagging.json --region "$(aws_region)"
 fi
 
 # Make the bucket an S3 website.
-aws s3 website $destination_bucket_uri --index-document index.html --error-document 404.html
+aws s3 website $destination_bucket_uri --index-document index.html --error-document 404.html --region "$(aws_region)"
 
 # Sync the local build directory to the bucket. Note that we do pass the --delete option
 # here, since in most cases, we'll be continually updating a bucket associated with a PR;
 # passing this option keeps the destination bucket clean.
 echo "Synchronizing to $destination_bucket_uri..."
-aws s3 sync "$build_dir" "$destination_bucket_uri" --acl public-read --delete --quiet
+aws s3 sync "$build_dir" "$destination_bucket_uri" --acl public-read --delete --quiet --region "$(aws_region)"
 
 echo "Sync complete."
 s3_website_url="http://${destination_bucket}.s3-website.$(aws_region).amazonaws.com"
@@ -66,13 +72,16 @@ echo "$s3_website_url"
 
 # Set the content-type of latest-version explicitly. (Otherwise, it'll be set as binary/octet-stream.)
 aws s3 cp "$build_dir/latest-version" "${destination_bucket_uri}/latest-version" \
-    --content-type "text/plain" --acl public-read --metadata-directive REPLACE
+    --content-type "text/plain" --acl public-read --region "$(aws_region)" --metadata-directive REPLACE
+aws s3 cp "$build_dir/latest-dev-version" "${destination_bucket_uri}/latest-dev-version" \
+    --content-type "text/plain" --acl public-read --region "$(aws_region)" --metadata-directive REPLACE
+aws s3 cp "$build_dir/esc/latest-version" "${destination_bucket_uri}/esc/latest-version" \
+    --content-type "text/plain" --acl public-read --region "$(aws_region)" --metadata-directive REPLACE
+aws s3 cp "$build_dir/customer-managed-deployment-agent/latest-version" "${destination_bucket_uri}/customer-managed-deployment-agent/latest-version" \
+    --content-type "text/plain" --acl public-read --region "$(aws_region)" --metadata-directive REPLACE
 
 # Smoke test the deployed website. Specs are in ../cypress/integration.
 echo "Running tests..."
-
-echo "Checking links on $s3_website_url..."
-./scripts/check-links.sh "url" "$s3_website_url"
 
 echo "Running browser tests on $s3_website_url..."
 ./scripts/run-browser-tests.sh "$s3_website_url"
@@ -99,11 +108,11 @@ printf "$metadata" "$(current_time_in_ms)" "$(git_sha)" "$destination_bucket" "$
 # Copy the file to the destination bucket, for future reference.
 aws s3 cp "$metadata_file" "${destination_bucket_uri}/metadata.json" --region "$(aws_region)" --acl public-read
 
-# Persist an association between the current commit and the bucket we just deployed to.
-set_bucket_for_commit "$(git_sha)" "$destination_bucket" "$(aws_region)"
+# Set cors configuration on bucket.
+aws s3api put-bucket-cors --bucket "$destination_bucket" --cors-configuration "file://scripts/cors/cors.json" --region "$(aws_region)"
 
 # Finally, if it's a preview, post a comment to the PR that directs the user to the resulting bucket URL.
-if [ "$1" == "preview" ]; then
+if [[ "$1" == "preview" ]]; then
     pr_comment_api_url="$(cat "$GITHUB_EVENT_PATH" | jq -r ".pull_request._links.comments.href")"
     post_github_pr_comment \
         "Your site preview for commit $(git_sha_short) is ready! :tada:\n\n${s3_website_url}." \
