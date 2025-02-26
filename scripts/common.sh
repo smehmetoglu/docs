@@ -30,7 +30,7 @@ post_github_pr_comment() {
 
     curl -s \
          -X POST \
-         -H "Authorization: token ${GITHUB_TOKEN}" \
+         -H "Authorization: token ${PULUMI_BOT_TOKEN}" \
          -d "$pr_comment_body" \
          $pr_comment_api_url > /dev/null
 }
@@ -56,7 +56,11 @@ current_time_in_ms() {
 }
 
 origin_bucket_prefix() {
-    echo "pulumi-docs-origin"
+    # This function returns the bucket name prefix to be used when naming the
+    # S3 buckets. We are adding a `www` prefix to the buckets being deployed
+    # to the new account, in order to account for collisions in the global
+    # bucket namespace.
+    echo "www-${DEPLOYMENT_ENVIRONMENT}-pulumi-docs-origin"
 }
 
 # Returns the name of the metadata file we expect to exist locally before running Pulumi.
@@ -93,37 +97,13 @@ build_identifier() {
     echo "$identifier"
 }
 
-# Get the AWS SSM Parameter Store key for the specified commit SHA. Used for mapping a
-# commit to a previously created bucket.
-ssm_parameter_key_for_commit() {
-    echo "/docs/commits/$1/bucket"
-}
-
-# Get the S3 bucket associated with a specific commit.
-get_bucket_for_commit() {
-    aws ssm get-parameter \
-        --name "$(ssm_parameter_key_for_commit $1)" \
-        --query Parameter.Value \
-        --region us-west-2 \
-        --output text || echo ""
-}
-
-# Set the S3 bucket associated with a specific commit.
-set_bucket_for_commit() {
-    aws ssm put-parameter \
-        --name "$(ssm_parameter_key_for_commit $1)" \
-        --value "$2" \
-        --type String \
-        --region $3 \
-        --overwrite
-}
-
 # List the 100 most recent bucket in the current account, sorted descendingly by
 # CreationDate, matching the prefix we use to name website buckets. Supports an optional
 # suffix to filter by (e.g., "pr" or "push").
 get_recent_buckets() {
     aws s3api list-buckets \
         --query "reverse(sort_by(Buckets,&CreationDate))[:100].{id:Name,date:CreationDate}|[?starts_with(id,'$(origin_bucket_prefix)-${1}')]" \
+        --region "$(aws_region)" \
         --output json | jq -r '.[].id'
 }
 

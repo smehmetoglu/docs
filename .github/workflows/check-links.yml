@@ -4,22 +4,23 @@ on:
     # * is a special character in YAML so you have to quote this string.
     # Run every day at 3:00PM UTC.
     - cron:  '0 15 * * *'
+  workflow_dispatch:
 jobs:
   all:
     env:
       GOPATH: ${{ github.workspace }}/go
     name: Check links
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - name: Install Node
         uses: actions/setup-node@v1
         with:
-          node-version: '14.x'
+          node-version: '18.x'
       - name: Install Hugo
         uses: peaceiris/actions-hugo@v2
         with:
-          hugo-version: '0.82.0'
+          hugo-version: '0.135.0'
           extended: true
       - name: Run make check_links
         run: make check_links
